@@ -32,7 +32,9 @@ npm install @piperadar/bullmq
 | Latency (ms) | Environment variables |
 | Attempt / retry count | Secrets, tokens, API keys |
 | Timestamp | Customer objects / PII |
-| Error message — **scrubbed by default** (see below) | Raw error text (unless you opt in) |
+| `environment` (e.g. `production`) & optional `service` name | Raw error text (unless you opt in) |
+| SDK version (`sdk_version`) | |
+| Error message — **scrubbed by default** (see below) | |
 
 **On job IDs and queue names:** job IDs *are* sent (they let you find a specific
 failure in the dashboard). Queue and job **names** are sent verbatim, so don't
@@ -62,15 +64,40 @@ That's it. `watch()` is idempotent per queue, so calling it twice is harmless.
 ```ts
 PipeRadar({
   apiKey: 'pr_live_...',     // required
-  apiUrl,                    // ingestion base URL (default: https://piperadar.dev)
+  environment,               // tags every event (default: process.env.NODE_ENV)
+  service,                   // service/app name, e.g. 'billing-worker' (optional)
   batchSize,                 // events buffered before a flush (default: 25)
   flushInterval,             // flush cadence in ms (default: 5000)
   maxBufferedEvents,         // retry-buffer cap during an outage (default: 1000)
   enabled,                   // set false to disable, e.g. in tests (default: true)
   errorMessages,             // 'scrub' (default) | 'raw' | 'off'  — see below
   errorTransformer,          // (raw) => string | undefined        — full control
+  advanced: { apiUrl },      // ingestion base URL (default: https://piperadar.dev)
 })
 ```
+
+`environment` and `service` travel with every event so you can tell a
+`production` failure from a `staging` one, or attribute events when several
+services share a queue. Each event also carries the SDK version (`sdk_version`)
+for compatibility diagnostics — you don't set it.
+
+> **`apiUrl` moved under `advanced`.** 99% of workers never point the SDK anywhere
+> but production, so the base URL now lives in `advanced.apiUrl` to keep setup to a
+> single `apiKey`. The old top-level `apiUrl` still works (deprecated) — pass
+> `advanced.apiUrl` in new code.
+
+## Flushing
+
+Events are batched and flushed automatically, but in short-lived processes
+(scripts, serverless handlers, tests) call `await pr.flush()` before you exit so
+nothing buffered is lost. `flush()` never throws.
+
+```ts
+await pr.flush()   // force-send everything buffered, now
+```
+
+On a long-running worker, prefer `await pr.destroy()` on shutdown — it flushes
+*and* closes the queue-event listeners.
 
 ## Error messages — safe by default
 

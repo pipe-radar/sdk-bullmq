@@ -181,3 +181,57 @@ test('truncates very long error messages', () => {
   assert.ok(out.length <= 501, `expected <=501 chars, got ${out.length}`)
   assert.ok(out.endsWith('…'))
 })
+
+// --- event metadata (sdk_version / environment / service) -------------------
+// These lock that every event carries identifying metadata on the wire, and that
+// `service` is only present when the caller sets one.
+
+test('stamps sdk_version and environment on every event', async () => {
+  const calls = installFetch(() => ({ ok: true, status: 200 }))
+  const c = makeClient({ environment: 'production', service: 'billing-worker' })
+
+  c.push({
+    queue_name: 'q', job_id: 'j1', job_name: 'task', status: 'completed',
+    attempt: 1, max_attempts: 1, occurred_at: new Date().toISOString(),
+  })
+  await c.flush()
+
+  const ev = calls[0].body.events[0] as Record<string, unknown>
+  assert.match(String(ev.sdk_version), /^\d+\.\d+\.\d+/, 'sdk_version is stamped')
+  assert.equal(ev.environment, 'production')
+  assert.equal(ev.service, 'billing-worker')
+  assert.equal(ev.adapter_type, 'bullmq')
+})
+
+test('defaults environment to NODE_ENV and omits service when unset', async () => {
+  const prev = process.env.NODE_ENV
+  process.env.NODE_ENV = 'staging'
+  try {
+    const calls = installFetch(() => ({ ok: true, status: 200 }))
+    const c = makeClient() // no environment / service given
+    c.push({
+      queue_name: 'q', job_id: 'j1', job_name: 'task', status: 'completed',
+      attempt: 1, max_attempts: 1, occurred_at: new Date().toISOString(),
+    })
+    await c.flush()
+
+    const ev = calls[0].body.events[0] as Record<string, unknown>
+    assert.equal(ev.environment, 'staging', 'falls back to NODE_ENV')
+    assert.ok(!('service' in ev), 'service is omitted from the wire when unset')
+  } finally {
+    process.env.NODE_ENV = prev
+  }
+})
+
+// --- apiUrl resolution (advanced.apiUrl with legacy fallback) ---------------
+
+test('advanced.apiUrl takes precedence over the deprecated top-level apiUrl', () => {
+  const c = makeClient({ apiUrl: 'https://legacy.example', advanced: { apiUrl: 'https://new.example/' } })
+  assert.equal(c.apiUrl, 'https://new.example', 'advanced.apiUrl wins and trailing slash is trimmed')
+
+  const legacy = makeClient({ apiUrl: 'https://legacy.example' })
+  assert.equal(legacy.apiUrl, 'https://legacy.example', 'top-level apiUrl still honored for back-compat')
+
+  const def = makeClient()
+  assert.equal(def.apiUrl, 'https://piperadar.dev', 'defaults to production')
+})

@@ -93,10 +93,11 @@ const pick = <T>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
 
 const pr = PipeRadar({
   apiKey: API_KEY,
-  apiUrl: API_URL,
+  service: 'harness',
   // Small batch + fast flush so you see data quickly while watching the UI.
   batchSize: 10,
   flushInterval: 1500,
+  advanced: { apiUrl: API_URL },
 })
 
 const queues: Queue[] = []

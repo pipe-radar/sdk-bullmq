@@ -17,8 +17,17 @@ import { Queue, QueueEvents } from 'bullmq'
 
 export interface PipeRadarOptions {
   apiKey: string
-  /** Ingestion API base URL. Defaults to production. */
-  apiUrl?: string
+  /**
+   * Logical environment this worker runs in — tags every event so you can tell
+   * a `production` failure from a `staging` one. Defaults to `NODE_ENV`
+   * (falling back to `'development'`).
+   */
+  environment?: string
+  /**
+   * Name of the service/app emitting these events (e.g. `'billing-worker'`).
+   * Optional; helps attribute events when several services share a queue.
+   */
+  service?: string
   /** Max events to buffer before flushing. Default: 25 */
   batchSize?: number
   /** Flush interval in ms. Default: 5000 */
@@ -47,6 +56,19 @@ export interface PipeRadarOptions {
    * A throwing transformer is treated as "omit" — it can never break monitoring.
    */
   errorTransformer?: (rawMessage: string) => string | undefined
+  /**
+   * Advanced knobs 99% of users never need. Kept in their own namespace so the
+   * common options stay tiny and the onboarding surface is a single `apiKey`.
+   */
+  advanced?: {
+    /** Ingestion API base URL. Defaults to production (`https://piperadar.dev`). */
+    apiUrl?: string
+  }
+  /**
+   * @deprecated Use `advanced.apiUrl`. Kept at the top level for backward
+   * compatibility; `advanced.apiUrl` wins if both are set.
+   */
+  apiUrl?: string
 }
 
 /** The wire shape sent to /v1/ingest. workspace_id is stamped server-side. */
@@ -61,7 +83,21 @@ interface JobEvent {
   max_attempts: number
   error_msg?: string
   occurred_at: string
+  /** SDK version that produced the event (for compatibility diagnostics). */
+  sdk_version: string
+  /** Logical environment (production / staging / …); defaults to NODE_ENV. */
+  environment: string
+  /** Optional service/app name that emitted the event. */
+  service?: string
 }
+
+/**
+ * SDK version stamped onto every event as `sdk_version`. Kept in sync with
+ * `package.json` by hand — tsc's `rootDir: src` can't import the manifest, and a
+ * hardcoded constant is more reliable at runtime than reading package.json from a
+ * bundled `dist/`.
+ */
+const SDK_VERSION = '0.1.0'
 
 const DEFAULT_API_URL = 'https://piperadar.dev'
 const DEFAULT_MAX_BUFFERED_EVENTS = 1000
@@ -131,6 +167,8 @@ class PipeRadarClient {
   private enabled: boolean
   private errorMode: 'scrub' | 'raw' | 'off'
   private errorTransformer?: (rawMessage: string) => string | undefined
+  private environment: string
+  private service?: string
   private buffer: JobEvent[] = []
   // Batches taken from `buffer` that are sent or awaiting retry, oldest first.
   private pending: PendingBatch[] = []
@@ -144,13 +182,17 @@ class PipeRadarClient {
 
   constructor(opts: PipeRadarOptions) {
     this.apiKey = opts.apiKey
-    this.apiUrl = (opts.apiUrl ?? DEFAULT_API_URL).replace(/\/$/, '')
+    // `advanced.apiUrl` is the real home; the top-level `apiUrl` is a deprecated
+    // fallback so existing callers keep working.
+    this.apiUrl = (opts.advanced?.apiUrl ?? opts.apiUrl ?? DEFAULT_API_URL).replace(/\/$/, '')
     this.batchSize = opts.batchSize ?? 25
     this.flushInterval = opts.flushInterval ?? 5000
     this.maxBufferedEvents = opts.maxBufferedEvents ?? DEFAULT_MAX_BUFFERED_EVENTS
     this.enabled = opts.enabled ?? true
     this.errorMode = opts.errorMessages ?? 'scrub'
     this.errorTransformer = opts.errorTransformer
+    this.environment = opts.environment ?? process.env.NODE_ENV ?? 'development'
+    this.service = opts.service
     if (this.enabled) this.scheduleFlush()
   }
 
@@ -238,8 +280,15 @@ class PipeRadarClient {
     }
   }
 
-  private push(event: Omit<JobEvent, 'adapter_type'>): void {
-    this.buffer.push({ ...event, adapter_type: 'bullmq' })
+  private push(event: Omit<JobEvent, 'adapter_type' | 'sdk_version' | 'environment' | 'service'>): void {
+    this.buffer.push({
+      ...event,
+      adapter_type: 'bullmq',
+      sdk_version: SDK_VERSION,
+      environment: this.environment,
+      // Only carry `service` on the wire when the caller set one.
+      ...(this.service !== undefined ? { service: this.service } : {}),
+    })
     if (this.buffer.length >= this.batchSize) {
       void this.flush()
     }
@@ -252,6 +301,12 @@ class PipeRadarClient {
     return Date.now() - start
   }
 
+  /**
+   * Public API: force-send everything currently buffered, right now, instead of
+   * waiting for the next timer tick. Await it before a short-lived process exits
+   * (scripts, serverless handlers, tests) so no events are lost. Safe to call any
+   * time and never throws — like everything here, delivery failures are swallowed.
+   */
   async flush(): Promise<void> {
     // Seal whatever's currently buffered into a batch with a stable idempotency
     // key. The key is minted once, here, and reused on every retry of this exact
