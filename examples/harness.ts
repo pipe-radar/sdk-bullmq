@@ -1,30 +1,27 @@
 /**
- * Live BullMQ test harness for PipeRadar.
+ * Live BullMQ integration example for PipeRadar.
  *
- * A guarded demo asset (excluded from the published npm package): it refuses to
- * run against a non-localhost PIPERADAR_API_URL unless you explicitly confirm
- * (CONFIRM=1), so it can live in the repo without risk of flooding a deployed
- * API by accident.
- *
- * Unlike `backend/cmd/seed` (which POSTs synthetic JSON straight at the ingest
- * API), this drives the *real* SDK end-to-end: it spins up real BullMQ queues
- * and workers against a local Redis, attaches the PipeRadar SDK to each, and
+ * This drives the *real* SDK end-to-end: it spins up real BullMQ queues and
+ * workers against a local Redis, attaches the PipeRadar SDK to each, and
  * continuously produces a realistic mix of successes, retried failures, and
  * terminal failures. The SDK's native QueueEvents hooks pick those up, compute
- * latency, batch, and ship them to your local API. Watch them land in the
- * dashboard (queue health, failure groups, KPIs) in real time.
+ * latency, batch, and ship them to PipeRadar. Watch them land in your dashboard
+ * (queue health, failure groups, KPIs) in real time.
+ *
+ * You need two things: a running Redis, and an ingest key from your PipeRadar
+ * dashboard.
  *
  *   PIPERADAR_API_KEY=pr_... npm run harness          # from sdk-bullmq/
  *
- * Stop with Ctrl-C — it flushes buffered events and closes cleanly.
+ * Heads up: this generates continuous synthetic traffic against your PipeRadar
+ * project. Stop with Ctrl-C — it flushes buffered events and closes cleanly.
  *
  * Env:
- *   PIPERADAR_API_KEY  (required)  ingest key printed by `dev.ps1 seed`
- *   PIPERADAR_API_URL  default http://localhost:8080
+ *   PIPERADAR_API_KEY  (required)  ingest key from your PipeRadar dashboard
+ *   PIPERADAR_API_URL  default https://piperadar.dev
  *   REDIS_URL          default redis://localhost:6379
  *   RATE_MS            default 700    ms between job submissions
  *   SPIKE              set "1" to force a high failure rate (demo an incident)
- *   CONFIRM            set "1" to allow a non-localhost PIPERADAR_API_URL
  */
 
 import { Queue, Worker } from 'bullmq'
@@ -32,29 +29,11 @@ import { PipeRadar } from '../src/index'
 
 const API_KEY = process.env.PIPERADAR_API_KEY
 if (!API_KEY) {
-  console.error('PIPERADAR_API_KEY is required (use the api_key from `dev.ps1 seed`)')
+  console.error('PIPERADAR_API_KEY is required (get an ingest key from your PipeRadar dashboard)')
   process.exit(1)
 }
 
-const API_URL = process.env.PIPERADAR_API_URL ?? 'http://localhost:8080'
-
-// Prod-safety: this floods an API with synthetic traffic, so refuse a
-// non-localhost target unless the operator explicitly confirms.
-const isLocalhost = (raw: string): boolean => {
-  try {
-    const host = new URL(raw).hostname
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0'
-  } catch {
-    return false
-  }
-}
-if (!isLocalhost(API_URL) && process.env.CONFIRM !== '1') {
-  console.error(
-    `refusing to run against a non-localhost API (${API_URL}).\n` +
-      'This generates synthetic traffic. Re-run with CONFIRM=1 to target this host on purpose.',
-  )
-  process.exit(1)
-}
+const API_URL = process.env.PIPERADAR_API_URL ?? 'https://piperadar.dev'
 const RATE_MS = Number(process.env.RATE_MS ?? 700)
 const SPIKE = process.env.SPIKE === '1'
 

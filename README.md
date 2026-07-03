@@ -62,7 +62,7 @@ That's it. `watch()` is idempotent per queue, so calling it twice is harmless.
 ```ts
 PipeRadar({
   apiKey: 'pr_live_...',     // required
-  apiUrl,                    // ingestion base URL (default: https://api.piperadar.com)
+  apiUrl,                    // ingestion base URL (default: https://piperadar.dev)
   batchSize,                 // events buffered before a flush (default: 25)
   flushInterval,             // flush cadence in ms (default: 5000)
   maxBufferedEvents,         // retry-buffer cap during an outage (default: 1000)
@@ -125,9 +125,16 @@ DEBUG=piperadar node worker.js
 ## Development
 
 ```bash
-npm run build   # tsc → dist/
-npm test        # node --test via tsx (no jest)
-npm run harness # run the local example harness (examples/harness.ts)
+npm run build          # tsc → dist/
+npm test               # node --test via tsx (no jest)
+npm run example:basic  # smallest runnable example (examples/basic.ts)
+npm run harness        # runnable integration example — flood/spike demo (examples/harness.ts)
+```
+
+The examples need a running Redis and a `PIPERADAR_API_KEY` from your dashboard:
+
+```bash
+PIPERADAR_API_KEY=pr_... npm run example:basic
 ```
 
 ## License

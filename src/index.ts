@@ -63,7 +63,7 @@ interface JobEvent {
   occurred_at: string
 }
 
-const DEFAULT_API_URL = 'https://api.piperadar.com'
+const DEFAULT_API_URL = 'https://piperadar.dev'
 const DEFAULT_MAX_BUFFERED_EVENTS = 1000
 const MAX_ERROR_MSG_LEN = 500
 const FETCH_TIMEOUT_MS = 5000

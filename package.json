@@ -1,6 +1,6 @@
 {
   "name": "@piperadar/bullmq",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Drop-in pipeline failure & latency monitoring for BullMQ queues",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "node --import tsx --test \"test/*.test.ts\"",
+    "example:basic": "tsx examples/basic.ts",
     "harness": "tsx examples/harness.ts"
   },
   "keywords": ["bullmq", "monitoring", "queue", "observability", "piperadar"],
