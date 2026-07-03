@@ -10,7 +10,7 @@
     "dev": "tsc --watch",
     "test": "node --import tsx --test \"test/*.test.ts\"",
     "example:basic": "tsx examples/basic.ts",
-    "harness": "tsx examples/harness.ts"
+    "example:harness": "tsx examples/harness.ts"
   },
   "keywords": ["bullmq", "monitoring", "queue", "observability", "piperadar"],
   "license": "MIT",

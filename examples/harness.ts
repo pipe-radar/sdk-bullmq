@@ -11,7 +11,7 @@
  * You need two things: a running Redis, and an ingest key from your PipeRadar
  * dashboard.
  *
- *   PIPERADAR_API_KEY=pr_... npm run harness          # from sdk-bullmq/
+ *   PIPERADAR_API_KEY=pr_... npm run example:harness  # from sdk-bullmq/
  *
  * Heads up: this generates continuous synthetic traffic against your PipeRadar
  * project. Stop with Ctrl-C — it flushes buffered events and closes cleanly.

@@ -128,7 +128,7 @@ DEBUG=piperadar node worker.js
 npm run build          # tsc → dist/
 npm test               # node --test via tsx (no jest)
 npm run example:basic  # smallest runnable example (examples/basic.ts)
-npm run harness        # runnable integration example — flood/spike demo (examples/harness.ts)
+npm run example:harness  # runnable integration example — flood/spike demo (examples/harness.ts)
 ```
 
 The examples need a running Redis and a `PIPERADAR_API_KEY` from your dashboard:

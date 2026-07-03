@@ -25,7 +25,8 @@ const emailQueue = new Queue('email', { connection })
 const paymentQueue = new Queue('payments', { connection })
 
 // One line to start monitoring. watch() is idempotent per queue.
-const pr = PipeRadar({ apiKey })
+// apiUrl is unset by default (SDK falls back to prod); PIPERADAR_API_URL points it at a local backend.
+const pr = PipeRadar({ apiKey, apiUrl: process.env.PIPERADAR_API_URL })
 pr.watch(emailQueue)
 pr.watch(paymentQueue)
 
