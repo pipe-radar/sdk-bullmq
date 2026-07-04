@@ -233,5 +233,5 @@ test('advanced.apiUrl takes precedence over the deprecated top-level apiUrl', ()
   assert.equal(legacy.apiUrl, 'https://legacy.example', 'top-level apiUrl still honored for back-compat')
 
   const def = makeClient()
-  assert.equal(def.apiUrl, 'https://piperadar.dev', 'defaults to production')
+  assert.equal(def.apiUrl, 'https://api.piperadar.dev', 'defaults to production')
 })

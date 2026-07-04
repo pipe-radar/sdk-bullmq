@@ -61,7 +61,7 @@ export interface PipeRadarOptions {
    * common options stay tiny and the onboarding surface is a single `apiKey`.
    */
   advanced?: {
-    /** Ingestion API base URL. Defaults to production (`https://piperadar.dev`). */
+    /** Ingestion API base URL. Defaults to production (`https://api.piperadar.dev`). */
     apiUrl?: string
   }
   /**
@@ -99,7 +99,7 @@ interface JobEvent {
  */
 const SDK_VERSION = '0.1.0'
 
-const DEFAULT_API_URL = 'https://piperadar.dev'
+const DEFAULT_API_URL = 'https://api.piperadar.dev'
 const DEFAULT_MAX_BUFFERED_EVENTS = 1000
 const MAX_ERROR_MSG_LEN = 500
 const FETCH_TIMEOUT_MS = 5000

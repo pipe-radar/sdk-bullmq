@@ -18,7 +18,7 @@
  *
  * Env:
  *   PIPERADAR_API_KEY  (required)  ingest key from your PipeRadar dashboard
- *   PIPERADAR_API_URL  default https://piperadar.dev
+ *   PIPERADAR_API_URL  default https://api.piperadar.dev
  *   REDIS_URL          default redis://localhost:6379
  *   RATE_MS            default 700    ms between job submissions
  *   SPIKE              set "1" to force a high failure rate (demo an incident)
@@ -33,7 +33,7 @@ if (!API_KEY) {
   process.exit(1)
 }
 
-const API_URL = process.env.PIPERADAR_API_URL ?? 'https://piperadar.dev'
+const API_URL = process.env.PIPERADAR_API_URL ?? 'https://api.piperadar.dev'
 const RATE_MS = Number(process.env.RATE_MS ?? 700)
 const SPIKE = process.env.SPIKE === '1'
 

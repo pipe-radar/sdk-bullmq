@@ -72,7 +72,7 @@ PipeRadar({
   enabled,                   // set false to disable, e.g. in tests (default: true)
   errorMessages,             // 'scrub' (default) | 'raw' | 'off'  — see below
   errorTransformer,          // (raw) => string | undefined        — full control
-  advanced: { apiUrl },      // ingestion base URL (default: https://piperadar.dev)
+  advanced: { apiUrl },      // ingestion base URL (default: https://api.piperadar.dev)
 })
 ```
 
