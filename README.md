@@ -149,19 +149,65 @@ DEBUG=piperadar node worker.js
   buffering across process restarts is future work.)
 - **Graceful shutdown.** `destroy()` closes listeners and flushes what's buffered.
 
-## Development
+## Live example
+
+The repo ships one end-to-end example: [`examples/harness.ts`](examples/harness.ts).
+It drives the real SDK against a local Redis — three realistic queues
+(`payment-processor`, `email-sender`, `webhook-dispatch`) with real BullMQ
+workers producing a continuous mix of successes, retried failures, and terminal
+failures. The SDK picks those up through its native `QueueEvents` hooks,
+computes latency, batches, and ships them — watch queue health, failure groups,
+and KPIs update live in your dashboard.
+
+You need two things: a running Redis, and an ingest key from your PipeRadar
+dashboard.
 
 ```bash
-npm run build          # tsc → dist/
-npm test               # node --test via tsx (no jest)
-npm run example:basic  # smallest runnable example (examples/basic.ts)
+PIPERADAR_API_KEY=pr_...
 npm run example:harness  # runnable integration example — flood/spike demo (examples/harness.ts)
 ```
 
-The examples need a running Redis and a `PIPERADAR_API_KEY` from your dashboard:
+It generates continuous synthetic traffic against your PipeRadar project until
+you stop it. Stop with Ctrl-C — it flushes buffered events and shuts down
+cleanly.
+
+Tune it with environment variables:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PIPERADAR_API_KEY` | — (required) | ingest key from your PipeRadar dashboard |
+| `PIPERADAR_API_URL` | `https://api.piperadar.dev` | point at a local or self-hosted backend |
+| `REDIS_URL` | `redis://localhost:6379` | the Redis instance BullMQ connects to |
+| `RATE_MS` | `700` | milliseconds between job submissions |
+| `SPIKE` | off | set to `1` to force a high failure rate on `payment-processor` — simulates an incident to demo failure grouping and alerts |
+| `DEBUG` | off | set to `1` to log worker errors and every failed job attempt (with its error message) to stderr |
+
+> `DEBUG=1` controls the harness's own logging. The SDK's transparency mode is
+> separate — run with `DEBUG=piperadar` to print every ingest request body instead.
+
+### Using it as a template for your own app
+
+The harness is deliberately structured like a production worker process, so the
+integration parts copy straight into your own codebase:
+
+1. **Create the client once** per process —
+   `PipeRadar({ apiKey, service, advanced: { apiUrl } })`. (The harness uses a
+   small `batchSize` and fast `flushInterval` so events appear quickly while
+   demoing; in production the defaults are usually right.)
+2. **Watch each queue** — `pr.watch(queue)` right after you construct it. That's
+   the entire integration; your worker code doesn't change.
+3. **Shut down gracefully** — on `SIGINT`/`SIGTERM`, close your workers, then
+   `await pr.destroy()` to flush buffered events and stop the listeners.
+
+Everything else in the file (the queue specs, the producer loop, the simulated
+latencies and failures) exists only to generate realistic traffic — drop it.
+
+## Development
 
 ```bash
-PIPERADAR_API_KEY=pr_... npm run example:basic
+npm run build            # tsc → dist/
+npm test                 # node --test via tsx (no jest)
+npm run example:harness  # live end-to-end demo (see "Live example" above)
 ```
 
 ## License

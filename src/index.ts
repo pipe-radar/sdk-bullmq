@@ -97,7 +97,7 @@ interface JobEvent {
  * hardcoded constant is more reliable at runtime than reading package.json from a
  * bundled `dist/`.
  */
-const SDK_VERSION = '0.1.1'
+const SDK_VERSION = '0.1.2'
 
 const DEFAULT_API_URL = 'https://api.piperadar.dev'
 const DEFAULT_MAX_BUFFERED_EVENTS = 1000

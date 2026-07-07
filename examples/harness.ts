@@ -22,6 +22,8 @@
  *   REDIS_URL          default redis://localhost:6379
  *   RATE_MS            default 700    ms between job submissions
  *   SPIKE              set "1" to force a high failure rate (demo an incident)
+ *   DEBUG              set "1" to log worker errors and failed job attempts
+ *                      (DEBUG=piperadar instead enables SDK transparency mode)
  */
 
 import { Queue, Worker } from 'bullmq'
@@ -36,6 +38,7 @@ if (!API_KEY) {
 const API_URL = process.env.PIPERADAR_API_URL ?? 'https://api.piperadar.dev'
 const RATE_MS = Number(process.env.RATE_MS ?? 700)
 const SPIKE = process.env.SPIKE === '1'
+const DEBUG = process.env.DEBUG === '1'
 
 // Minimal redis:// URL parse — host:port is all BullMQ needs locally.
 const redisUrl = new URL(process.env.REDIS_URL ?? 'redis://localhost:6379')
@@ -117,7 +120,7 @@ for (const spec of specs) {
     async () => {
       const latency = spec.avgLatency * (0.3 + Math.random() * 1.6)
       await sleep(latency)
-      const failPct = SPIKE && spec.name === 'payment-processor' ? 0.6 : spec.failPct
+      const failPct = SPIKE && spec.name === 'payment-processor' ? 0.8 : spec.failPct
       if (Math.random() < failPct) {
         throw new Error(pick(spec.errors))
       }
@@ -125,7 +128,15 @@ for (const spec of specs) {
     },
     { connection },
   )
-  worker.on('error', () => {}) // never let worker errors crash the harness
+  // Never let worker errors crash the harness. Set DEBUG=1 to surface them.
+  worker.on('error', (err) => {
+    if (DEBUG) console.error(`worker error [${spec.name}]:`, err)
+  })
+  // Job failures (the simulated card_declined/503/SMTP throws) land here, not
+  // on 'error'. Set DEBUG=1 to see each failed attempt and its reason.
+  worker.on('failed', (job, err) => {
+    if (DEBUG) console.error(`job failed [${spec.name}] ${job?.id} attempt ${job?.attemptsMade}:`, err.message)
+  })
   workers.push(worker)
 }
 
